@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  file-service:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - AWS_REGION=${AWS_REGION}
+      - S3_BUCKET=${S3_BUCKET}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - MAX_FILE_SIZE=10485760  # 10MB
+      - ALLOWED_FILE_TYPES=image/jpeg,image/png,image/gif,image/webp,application/pdf,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document
+      - RATE_LIMIT_WINDOW=900000  # 15 minutes
+      - RATE_LIMIT_MAX=100
+      - CORS_ORIGIN=http://localhost:3001
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "healthcheck.js"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - file-service-network
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - file-service
+    restart: unless-stopped
+    networks:
+      - file-service-network
+
+networks:
+  file-service-network:
+    driver: bridge
+
+volumes:
+  uploads:
+  logs:
